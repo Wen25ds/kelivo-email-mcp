@@ -16,19 +16,54 @@ SMTP_PORT = 465
 EMAIL_USER = os.environ.get("IMAP_USER")
 EMAIL_PASS = os.environ.get("IMAP_PASS")
 
-@app.route('/mcp', methods=['POST'])
+@app.route('/mcp', methods=['POST', 'GET'])
 def mcp_handler():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Invalid request"}), 400
+    if request.method == 'GET':
+        return jsonify({"status": "ok"}), 200
 
-    method = data.get("method")
-    if method == "list_emails":
-        return list_emails()
-    elif method == "send_email":
-        return send_email(data.get("params"))
-    else:
-        return jsonify({"error": "Unknown method"}), 400
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid request"}), 400
+
+        method = data.get("method")
+        if method == "list_tools":
+            return jsonify({
+                "tools": [
+                    {
+                        "name": "list_emails",
+                        "description": "列出最近的5封邮件",
+                        "parameters": {}
+                    },
+                    {
+                        "name": "send_email",
+                        "description": "发送邮件",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "to": {"type": "string", "description": "收件人邮箱"},
+                                "subject": {"type": "string", "description": "邮件主题"},
+                                "body": {"type": "string", "description": "邮件内容"}
+                            },
+                            "required": ["to", "subject", "body"]
+                        }
+                    }
+                ]
+            })
+
+        elif method == "call_tool":
+            tool_name = data.get("name")
+            params = data.get("parameters", {})
+            if tool_name == "list_emails":
+                return list_emails()
+            elif tool_name == "send_email":
+                return send_email(params)
+            else:
+                return jsonify({"error": "Unknown tool"}), 400
+        else:
+            return jsonify({"error": "Unknown method"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def list_emails():
     try:
